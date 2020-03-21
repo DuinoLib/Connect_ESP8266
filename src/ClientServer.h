@@ -54,7 +54,7 @@
 /*static*/ void handleNewClient(void* arg, AsyncClient* client) {
   Serial.printf("\n new client has been connected to server, ip: %s", client->remoteIP().toString().c_str());
 
-  // add to list
+// add to list
 //  clients.push_back(client);
 
   // register events

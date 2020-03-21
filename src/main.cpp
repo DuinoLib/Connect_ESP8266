@@ -1,9 +1,5 @@
 #include <Arduino.h>
-
-extern "C"
-{
-#include "user_interface.h"
-}
+#include <ClientServer.h>
 
 uint16_t TCP_PORT = 8080;
 
@@ -31,6 +27,6 @@ void loop()
     uint32_t free = system_get_free_heap_size();
     Serial.print("\nFree Ram:");
     Serial.print(free);
-    connectToServer(host, port);
+    // connectToServer(host, port);
   }
 }
