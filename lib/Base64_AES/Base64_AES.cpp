@@ -1,18 +1,28 @@
 
 #include "Base64_AES.h"
 
-Base64_AES::Base64_AES() {}
+Base64_AES::Base64_AES(uint16_t bit) {
+  _bit = bit;
+}
 
 void Base64_AES::setkey(byte *mykey) {
   key = mykey;
 }
 
 int Base64_AES::expected_encrypted_b64_len(int msg_length) {
-  return base64_encode_expected_len ((msg_length + N_BLOCK - msg_length % N_BLOCK) + N_BLOCK);// this additional "N_BLOCK" is for adding iv key.
+  int len = base64_encode_expected_len ((msg_length + N_BLOCK - msg_length % N_BLOCK) + N_BLOCK);// this additional "N_BLOCK" is for adding iv key.
+  if (len < 0) {
+    return 0;
+  }
+  return len;
 }
 
 int Base64_AES::expected_decrypted_b64_len(int msg_length) {
-  return base64_decode_expected_len(msg_length) - N_BLOCK;
+  int len = base64_decode_expected_len(msg_length) - N_BLOCK;
+  if (len < 0) {
+    return 0;
+  }
+  return len;
 }
 
 void Base64_AES::encrypt_b64(char * msg, int msg_length, char * encrypted_b64_message) {
@@ -40,11 +50,9 @@ void Base64_AES::encrypt_b64(char * msg, int msg_length, char * encrypted_b64_me
   // clone the iv
   memcpy(real_iv, iv, N_BLOCK);//clone the iv key as it get consume during encryption
   //lets clone the key also because "i want to do so"
-  byte temp_key [N_BLOCK] ;
-  memcpy(temp_key, key, N_BLOCK);
   //encrypt the messgae
-  aes.do_aes_encrypt(msg_bytes, msg_length, cipher, temp_key, 128, iv);//we use 128 bit aes encryption
-  free(msg_bytes);
+  aes.do_aes_encrypt(msg_bytes, msg_length, cipher, key, _bit, iv); //we use 128 bit aes encryption
+
   // attatch the iv at the front with the encrypted message
   int final_cipher_len = padedLength + N_BLOCK;
   byte *final_cipher = new byte[final_cipher_len];
@@ -57,9 +65,7 @@ void Base64_AES::encrypt_b64(char * msg, int msg_length, char * encrypted_b64_me
   //  Serial.println("\nMessage   :");
   //  aes.printArray(msg_bytes, msg_length);
   //  Serial.println("\nKey   :");
-  //  aes.printArray(secret_key, 16);
-  //  Serial.println("\nTemp Key   :");
-  //  aes.printArray(temp_key, 16);
+  //  aes.printArray(key, 32);
   //  Serial.println("\nCypher   :");
   //  aes.printArray(cipher, padedLength);
   //  Serial.println("\nReal IV   :");
@@ -74,16 +80,20 @@ void Base64_AES::encrypt_b64(char * msg, int msg_length, char * encrypted_b64_me
   const char *cipher_char = reinterpret_cast<const char*>(final_cipher);
   // now lets do base64 encode
   base64_encode_chars(cipher_char, final_cipher_len, encrypted_b64_message);
-  free(cipher);
-  free(final_cipher);
+  delete cipher;
+  delete final_cipher;
+  delete msg_bytes;
 }
 
 
-void Base64_AES::decrypt_b64(char * encrypted, int msg_length, char * decrypted_message) {
+boolean Base64_AES::decrypt_b64(char * encrypted, int msg_length, char * decrypted_message) {
   /**
      convert the base64 encoded message to byte array
   */
   int expected_decode_length = base64_decode_expected_len(msg_length);
+  if (expected_decode_length < 32) {
+    return false;
+  }
   char *decoded = new char[expected_decode_length];
   base64_decode_chars(encrypted, msg_length, decoded);
   /**
@@ -106,11 +116,7 @@ void Base64_AES::decrypt_b64(char * encrypted, int msg_length, char * decrypted_
   }
   //decrypt the message
   //lets clone the key also because "i want to do so"
-  byte temp_key [N_BLOCK] ;
-  memcpy(temp_key, key, N_BLOCK);
-  aes.do_aes_decrypt(ecrypted_bytes, encrypted_bytes_len, decrypted_bytes, temp_key, 128, iv); //we use 128 bit aes encryption
-  free(decoded);
-  free(ecrypted_bytes);
+  aes.do_aes_decrypt(ecrypted_bytes, encrypted_bytes_len, decrypted_bytes, key, _bit, iv); //we use 128 bit aes encryption
 
   /**
      covert the byte array back to char array and store it to "decrypted_message"
@@ -119,5 +125,9 @@ void Base64_AES::decrypt_b64(char * encrypted, int msg_length, char * decrypted_
     decrypted_message[i] = (char) decrypted_bytes[i];
     //    Serial.println( decrypted_bytes[i]);
   }
-  free(decrypted_bytes);
+  delete decrypted_bytes;
+  delete decoded;
+  delete ecrypted_bytes;
+  return true;
+
 }

@@ -1,6 +1,6 @@
 #include "Base64_AES.h"
 
-Base64_AES aes;
+Base64_AES aes(128);
 
 void setup() {
   // put your setup code here, to run once:

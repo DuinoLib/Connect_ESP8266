@@ -1,7 +1,8 @@
+#include <ESP8266WiFi.h>
 #include <Base64_AES.h>
 
-byte *secret_key = (unsigned char*)"0123456789010123";// it should be 16 letter
-Base64_AES aes;
+byte *secret_key = (unsigned char*)"12345678123456781234567812345678";// it should be 16 or 32 letter
+Base64_AES aes(256);
 
 
 void setup() {
@@ -10,7 +11,13 @@ void setup() {
   aes.setkey(secret_key);
 }
 
+unsigned long milli = 0;
 void loop() {
+  if (millis() - milli > 2000) {
+    milli=millis();
+    Serial.print("Free Heap:");
+    Serial.println(ESP.getFreeHeap());
+  }
   if (Serial.available()) {
     String inputstr = Serial.readString();
     int inputLen = inputstr.length();
@@ -45,5 +52,8 @@ void loop() {
     unsigned long decrypt_time = time2b - time2a;
     Serial.print("Decryption duration(micros()): ");
     Serial.println(decrypt_time);
+    delete decryptedmsg;
+    delete baseencoded;
+    delete input;
   }
 }
