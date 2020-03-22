@@ -10,8 +10,9 @@
 
 */
 
-byte *secret_key = (unsigned char *)"1234567812345678"; // it should be 16 letter
-Base64_AES aes;
+// byte *secret_key = (unsigned char *)"12345678123456781234567812345678"; // it should be 16 letter
+byte secret_key[] = {239, 121, 124, 129, 24, 240, 45, 251, 100, 150, 7, 221, 93, 63, 140, 118, 35, 4, 140, 156, 6, 61, 83, 44, 201, 92, 94, 215, 168, 152, 166, 79}; //hashlib.sha256(key.encode()).digest()  [from python]
+Base64_AES aes(256);
 
 /********************************************************/
 
@@ -31,21 +32,37 @@ Base64_AES aes;
 /*static*/ void Server_handleData(void *arg, AsyncClient *client, void *data, size_t len)
 {
   Serial.printf("\n data received from client %s \n", client->remoteIP().toString().c_str());
-  Serial.write((uint8_t *)data, len);
-  int epected_msg_len = aes.expected_decrypted_b64_len(sizeof(len));
-  char *decryptedmsg = new char[epected_msg_len];
-  aes.decrypt_b64((char *)data, len, decryptedmsg);
-  Serial.println("Dencrypted: ");
-  Serial.println(decryptedmsg);
-
+  // int expected_msg_len = aes.expected_decrypted_b64_len(len);
+  // char *decryptedmsg = new char[expected_msg_len];
+  // aes.decrypt_b64((char *)data, len, decryptedmsg);
+  // Serial.println("Length");
+  // Serial.println(len);
+  // for (int i = 0; i < expected_msg_len; i++)
+  // {
+  //   Serial.print((int)decryptedmsg[i]);
+  //   Serial.print(",");
+  // }
+  // client->appendreaddata((char*)data,len);
   // reply to client
   if (client->space() > 32 && client->canSend())
   {
+    // size_t mlen=client->getreadsize();
+    
+    // Serial.println("Data Size");
+    // Serial.print(mlen);
+
+    // char * totaldata=new char[mlen];
+    // client->getreaddata(totaldata,mlen);
+    // Serial.println("Totaldata");
+    // Serial.print(totaldata);
+    // Serial.print("\n\nSEEEEEEEEEEEENNNNNNNNNNNN\n");
     char reply[32];
     sprintf(reply, "this is from ESP_WIFI");
     client->add(reply, strlen(reply));
     client->send();
+    // delete totaldata;
   }
+  // delete decryptedmsg;
 }
 
 /*static*/ void Server_handleDisconnect(void *arg, AsyncClient *client)
@@ -165,6 +182,7 @@ AsyncServer *server = new AsyncServer(TCP_PORT); // start listening on tcp port 
 void setup()
 {
   presetup();
+  aes.setkey(secret_key); //Never forget to set the key
   ////////////////////////////////////////////////////////////////
   WiFiManager wifiManager;
   //  wifiManager.setDebugOutput(false);
