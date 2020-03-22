@@ -4,6 +4,7 @@
 #include "config.h"
 #include <WiFiManager.h>
 #include <Base64_AES.h>
+#include <ArduinoJson.h>
 /**
 
 **************************Shared Variable***************
