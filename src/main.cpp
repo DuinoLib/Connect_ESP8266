@@ -25,7 +25,7 @@ void loop()
   {
     mili = millis();
     uint32_t free = system_get_free_heap_size();
-    Serial.print("\nFree Ram:");
+    Serial.print("\nFree Heap:");
     Serial.print(free);
     // connectToServer(host, port);
   }

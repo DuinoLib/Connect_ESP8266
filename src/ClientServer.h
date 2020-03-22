@@ -15,26 +15,90 @@ Base64_AES aes(256);
 
 ////Readeing data from Client////////
 
-boolean server_is_lock = false; //dont do other new esp connection.....
-char readeddata[1000];          /// lets make a very long char array
+char readeddata[1000]; /// lets make a very long char array
 size_t read_len = 0;
+String last_ip = "";
+uint16_t last_port = 0;
+
+///////////////////Connection Management//////////////
+boolean server_is_lock = false;
 
 /********************************************************/
 
-/**
+/********************************************SERVER*********************************************/
 
- ****************************Server**********************
+/********************************************CLIENT EVENTS**************************************/
 
-*/
-///*static*/ std::vector<AsyncClient*> clients; // a list to hold all clients
+/****************************************DO WHEN SERVER LOCKED******************************************/
+/*static*/ void Server_simple_handleError(void *arg, AsyncClient *client, int8_t error)
+{
+  Serial.printf("\nSimple: connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
+  client->close(true);
+  client->free();
+  delete client;
+}
 
-/* clients events */
+/*static*/ void Server_simple_handleDisconnect(void *arg, AsyncClient *client)
+{
+  Serial.printf("\nSimple: client %s disconnected \n", client->remoteIP().toString().c_str());
+  client->close(true);
+  client->free();
+  delete client;
+}
+
+/*static*/ void Server_simple_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
+{
+  Serial.printf("\n Simple: client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
+  client->close(true);
+  client->free();
+  delete client;
+}
+
+/*static*/ void Server_simple_handleData(void *arg, AsyncClient *client, void *data, size_t len)
+{
+  Serial.printf("\nSimple: data received but we are not accepting %s \n", client->remoteIP().toString().c_str());
+  ////Dont send anything/////
+  if (client->canSend())
+  {
+    char reply[] = " ";
+    client->add(reply, strlen(reply));
+    client->send();
+  }
+}
+
+/****************************************DO WHEN SERVER IS NOT LOCKED******************************************/
+
 /*static*/ void Server_handleError(void *arg, AsyncClient *client, int8_t error)
 {
-  ///unlock the server/////
   server_is_lock = false;
-  ////////////////////////
+  Serial.println("Server Unlocked");
+
   Serial.printf("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
+  client->close(true);
+  client->free();
+  delete client;
+}
+
+/*static*/ void Server_handleDisconnect(void *arg, AsyncClient *client)
+{
+  server_is_lock = false;
+  Serial.println("Server Unlocked");
+
+  Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
+  client->close(true);
+  client->free();
+  delete client;
+}
+
+/*static*/ void Server_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
+{
+  server_is_lock = false;
+  Serial.println("Server Unlocked");
+
+  Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
+  client->close(true);
+  client->free();
+  delete client;
 }
 
 /*static*/ void Server_handleData(void *arg, AsyncClient *client, void *data, size_t len)
@@ -47,11 +111,8 @@ size_t read_len = 0;
       readeddata[read_len + i] = ((char *)data)[i];
     }
     read_len = read_len + len;
-    Serial.println("\nSended\n");
-    // Serial.println(readeddata);
-    /////////////////////////////////////////
-    char reply[32];
-    sprintf(reply, "this is from ESP_WIFI");
+    ///////////////////SEND DATA IF YOU WANT//////////////////////
+    char reply[] = " ";
     client->add(reply, strlen(reply));
     client->send();
   }
@@ -73,52 +134,29 @@ size_t read_len = 0;
     {
       readeddata[i] = decryptedmsg[i];
     }
-    readeddata[expected_msg_len]=0;//terminate the last string as 0
+    readeddata[expected_msg_len] = 0; //terminate the last string as 0
     delete decryptedmsg;
+    //////////DO SOMETHING HERE//////
     Serial.println("Final msg:");
     Serial.println(readeddata);
     /////////////////////////////////
     read_len = 0; ///reset the read_len
   }
 }
-
-/*static*/ void Server_handleDisconnect(void *arg, AsyncClient *client)
-{
-  ///unlock the server/////
-  server_is_lock = false;
-  ////////////////////////
-  Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
-  client->close(true);
-  client->free();
-  delete client;
-}
-
-/*static*/ void Server_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
-{
-  ///unlock the server/////
-  server_is_lock = false;
-  ////////////////////////
-  Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
-}
-
-/* server events */
+/*************************************WHEN NEW CONNECTION***************************/
 /*static*/ void handleNewClient(void *arg, AsyncClient *client)
 {
+  Serial.printf("\n new client has been connected to server, ip: %s", client->remoteIP().toString().c_str());
   if (server_is_lock)
   {
-    Serial.printf("\n Deny connection to server, ip: %s", client->remoteIP().toString().c_str());
-    //close the client properly
-    client->close(true);
-    client->free();
-    delete client;
+    client->onData(&Server_simple_handleData, NULL);
+    client->onError(&Server_simple_handleError, NULL);
+    client->onDisconnect(&Server_simple_handleDisconnect, NULL);
+    client->onTimeout(&Server_simple_handleTimeOut, NULL);
+    return;
   }
-  server_is_lock = true; //lock the server
-  Serial.printf("\n new client has been connected to server, ip: %s", client->remoteIP().toString().c_str());
-
-  // add to list
-  //  clients.push_back(client);
-
-  // register events
+  Serial.println("\nLocked Server");
+  server_is_lock = true;
   client->onData(&Server_handleData, NULL);
   client->onError(&Server_handleError, NULL);
   client->onDisconnect(&Server_handleDisconnect, NULL);
