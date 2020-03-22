@@ -45,6 +45,25 @@ char readeddata[1000]; /// lets make a very long char array
 /*static*/ void Server_handleDisconnect(void *arg, AsyncClient *client)
 {
   Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
+
+  ///////////////////LETS DECRYPT WHEN DISCONNECTED/////////////////////
+    ////////Do something here//////////
+    size_t expected_msg_len = aes.expected_decrypted_b64_len(client->client_data_len);
+    char *decryptedmsg = new char[expected_msg_len];
+
+    aes.decrypt_b64(client->client_data, client->client_data_len, decryptedmsg);
+    for (size_t i = 0; i < expected_msg_len; i++)
+    {
+      readeddata[i] = decryptedmsg[i];
+    }
+    readeddata[expected_msg_len] = 0; //terminate the last string as 0
+    delete decryptedmsg;
+    //////////DO SOMETHING HERE//////
+    Serial.println("Final msg:");
+    Serial.println(readeddata);
+    /////////////////////////////////
+
+  //////////////////////////////////////////////////////////////////////
   ////delete the client's readed data properly////
   if (client->is_new_data)
   {
@@ -60,6 +79,7 @@ char readeddata[1000]; /// lets make a very long char array
 /*static*/ void Server_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
 {
   Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
+  Serial.println();
   ////delete the client's readed data properly////
   if (client->is_new_data)
   {
@@ -77,6 +97,7 @@ char readeddata[1000]; /// lets make a very long char array
   Serial.printf("\n data received from client %s \n", client->remoteIP().toString().c_str());
   ////////////////////////////////////////
 
+  // Serial.println((char*)data);
   //////////THIS IS JUST APPENDING "data" to "client_data"////////////
   size_t new_data_len = client->client_data_len + len;
   char *new_data = new char[new_data_len];
@@ -92,7 +113,7 @@ char readeddata[1000]; /// lets make a very long char array
   client->client_data_len = new_data_len;
   if (client->is_new_data)
   {
-    delete client->client_data;// dont forget to delete the previous char array if eisted......
+    delete client->client_data; // dont forget to delete the previous char array if existed......
   }
   client->client_data = new char[new_data_len];
   client->is_new_data = true;
@@ -109,24 +130,6 @@ char readeddata[1000]; /// lets make a very long char array
     char reply[] = " ";
     client->add(reply, strlen(reply));
     client->send();
-  }
-  else
-  {
-    ////////Do something here//////////
-    // Serial.println(readeddata);
-    size_t expected_msg_len = aes.expected_decrypted_b64_len(client->client_data_len);
-    char *decryptedmsg = new char[expected_msg_len];
-    aes.decrypt_b64(client->client_data, client->client_data_len, decryptedmsg);
-    for (size_t i = 0; i < expected_msg_len; i++)
-    {
-      readeddata[i] = decryptedmsg[i];
-    }
-    readeddata[expected_msg_len] = 0; //terminate the last string as 0
-    delete decryptedmsg;
-    //////////DO SOMETHING HERE//////
-    Serial.println("Final msg:");
-    Serial.println(readeddata);
-    /////////////////////////////////
   }
 }
 /*************************************WHEN NEW CONNECTION***************************/
