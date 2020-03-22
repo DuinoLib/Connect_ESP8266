@@ -191,9 +191,11 @@ protected:
     void setCloseError(err_t e) const { _errorTracker->setCloseError(e); }
 
 public:
+    /////Modified code///////
     char *client_data;
-    size_t client_data_len=0;
-    boolean is_new_data=false;
+    size_t client_data_len = 0;
+    boolean is_new_data = false;
+    /////////////////////////
     AsyncClient *prev;
     AsyncClient *next;
 
