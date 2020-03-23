@@ -27,14 +27,16 @@
 #define DATALIST_MSG "pendingMsg"
 
 ////////////////////////////////DEFINE////////////////////
-#define UNIQUE_LEN 16
+#define UNIQUE_LEN 16 // length of the salt or msessage id
 #define MAX_SALT 3
 #define MAX_MSG 3
+
+#define MAX_PENDING_TIME 10000000 //10 seconds in microseconds
 
 /////////////////EXTERN//////////////
 extern uint16_t TCP_PORT;
 extern Base64_AES aes;
-extern void connectToServer(const char *host, int port,char * msg, size_t len );
+extern void connectToServer(const char *host, int port, char *msg, size_t len);
 
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////
@@ -107,6 +109,7 @@ Salt *mySalts[MAX_SALT];
 uint8_t salt_counter = 0;
 
 Message *myMsgs[MAX_MSG];
+//////////////////Pop the salt/////////////////
 
 //////////////////////////////////////Message Constructor////////////
 
@@ -163,7 +166,7 @@ void constructMsg(
     ///////////SaltToadd///////
     JsonObject salt_add = doc.createNestedObject("saltToAdd");
     salt_add["saltString"] = mySalts[salt_index]->salt_char;
-    salt_add["milli"] = mySalts[salt_index]->time;
+    // salt_add["milli"] = mySalts[salt_index]->time;
     ////////////////////TAG/////////////////
     doc["tag"] = tag;
     ///////////////commutype/////////
@@ -175,7 +178,7 @@ void constructMsg(
     {
         JsonObject uid_chk = doc.createNestedObject("saltToCheck");
         uid_chk["saltString"] = json["saltToAdd"]["saltString"];
-        uid_chk["milli"] = (unsigned long)json["saltToAdd"]["milli"];
+        // uid_chk["milli"] = (unsigned long)json["saltToAdd"]["milli"];
     }
     else
     {
@@ -202,25 +205,25 @@ void handleEncryptedsend(char *msg, uint16_t len, const char *ip, uint16_t port)
     {
         expected_msg_len = 1500;
     }
-    char * crypted = new char[expected_msg_len+2];
+    char *crypted = new char[expected_msg_len + 2];
     aes.encrypt_b64(msg, len, crypted);
     //////////DO SOMETHING HERE/////
-    size_t crypted_len= strlen(crypted);
+    size_t crypted_len = strlen(crypted);
     ///Lets make the line ended by "\r\n" this will make server to disconnect
-    crypted[crypted_len]=13;//"\r"
-    crypted[crypted_len+1]=10;//"\n"
-    crypted[crypted_len+2]=0;//"0"
-    crypted_len=crypted_len+3;
-    Serial.println("\nEnrypt len");
-    Serial.println(crypted);
-    connectToServer(ip, port,crypted,crypted_len);
+    crypted[crypted_len] = 13;     //"\r"
+    crypted[crypted_len + 1] = 10; //"\n"
+    crypted[crypted_len + 2] = 0;  //"0"
+    crypted_len = crypted_len + 3;
+    // Serial.println("\nEnrypt len");
+    // Serial.println(crypted);
+    connectToServer(ip, port, crypted, crypted_len);
 }
 
 ///////////////////////////////////////////////////////////////
 void validate(char *data, size_t len)
 {
     Serial.println("\nValidate");
-    Serial.println(data);
+    // Serial.println(data);
     StaticJsonDocument<1500> doc;
     DeserializationError error = deserializeJson(doc, data);
     if (error)
@@ -251,10 +254,12 @@ void validate(char *data, size_t len)
         Serial.println("\nSender IP Port is NULL");
         return;
     }
+
+    /// if salt to check is null send some valid salt///
     // if(true)
     if (!doc["saltToCheck"])
     {
-        
+
         Serial.println("\n Init or Salt to check is null");
         ///////////////Here we are adding a new Salt to the Salt Array//////////////////
 
@@ -296,7 +301,7 @@ void validate(char *data, size_t len)
         char *msg2send = new char[sz];
         serializeJson(newdoc, msg2send, sz);
         msg2send[sz - 1] = 0;
-        Serial.println(msg2send);
+        // Serial.println(msg2send);
         /////////serialize///////
         /// lets send the message/////
 
@@ -305,15 +310,96 @@ void validate(char *data, size_t len)
         delete msg2send;
     }
 
-    Serial.println("There is salt to check");
-    /// if it is init type/salt to check is null send some valid salt///
-
     /// if it is not ////
+    Serial.println("\nThere is salt to check");
     /// check salt is valid//// first delete the expired salt then check
+    const char *q_salt = doc["saltToCheck"]["saltString"];
+    Serial.print("\nQ_salt: ");
+    Serial.print(q_salt);
+    if (!q_salt)
+    {
+        Serial.println("Salt String is Emptied");
+        return;
+    }
+    ////////check two string is equal//////
+    boolean validsalt = false;
+    unsigned long curmicro = micros();
+    for (size_t i = 0; i < MAX_SALT; i++)
+    {
+        Salt *p_salt = mySalts[i];
+        if (p_salt)
+        {
+            if (curmicro - p_salt->time < MAX_PENDING_TIME)
+            {
+                bool eq = true;
+                for (size_t i = 0; i < UNIQUE_LEN; i++)
+                {
+                    if (q_salt[i] != p_salt->salt_char[i])
+                    {
+                        eq = false;
+                        break;
+                    }
+                }
+                if (eq)
+                {
+                    validsalt = true;
+                    // delete p_salt;
+                    Serial.print("\nEqual: ");
+                    Serial.print(q_salt);
+                    Serial.print(",");
+                    Serial.print(p_salt->salt_char);
+                    break;
+                }
+                else
+                {
+                    Serial.print("\nNot Equal: ");
+                    Serial.print(q_salt);
+                    Serial.print(",");
+                    Serial.print(p_salt->salt_char);
+                }
+            }
+            else
+            {
+                Serial.println("\nExpired salt ");
+                Serial.println(p_salt->salt_char);
+                Serial.println(curmicro - p_salt->time);
+            }
+        }
+        if (validsalt)
+        {
+            break;
+        }
+    }
+    if (!validsalt)
+    {
+        Serial.println("\nInvalid Salt!!!!");
+        return;
+    }
 
-    //if it is not valid or valid
+    Serial.println("\nValid Valid Valid");
+    ////////////////////OKEY The salt is valid//////////////
 
-    //return if not valid
+    // check the message type is init.....
+    //if the message is INIT type//// send the aactual meaage
+    if (msgType == TYPE_INIT)
+    {
+        Serial.println("\nInit... please send actual meaage");
 
-    // if valid
+        return;
+    }
+    if (msgType == TYPE_MESSAGE)
+    {
+        Serial.println("\n We have to do something");
+
+        return;
+    }
+
+    if (msgType == TYPE_RESPOSNE)
+    {
+        Serial.println("\nResponse of previous is recieve");
+
+        return;
+    }
+
+    Serial.println("\nMust not Recieve here.....");
 }

@@ -43,10 +43,19 @@ Base64_AES aes(256);
   ///////////////////LETS DECRYPT WHEN DISCONNECTED/////////////////////
   ////////Do something here//////////
   size_t expected_msg_len = aes.expected_decrypted_b64_len(client->client_data_len);
-  char *decryptedmsg = new char[expected_msg_len+1];
+  char *decryptedmsg = new char[expected_msg_len + 1];
 
   aes.decrypt_b64(client->client_data, client->client_data_len, decryptedmsg);
-  decryptedmsg[expected_msg_len]=0;/// lets end with zero
+  // size_t strlen_d = strlen(decryptedmsg);
+  // if (strlen_d < expected_msg_len)
+  // {
+  //   decryptedmsg[strlen_d] = 0; /// lets end with zero}
+  // }
+  // else
+  // {
+  //   decryptedmsg[expected_msg_len] = 0; /// lets end with zero}
+  // }
+  decryptedmsg[expected_msg_len] = 0; /// lets end with zero}
   //////////DO SOMETHING HERE//////
   validate(decryptedmsg, expected_msg_len);
   /////////////////////////////////
@@ -150,8 +159,8 @@ Base64_AES aes(256);
   // send reply
   if (client->space() > 32 && client->canSend())
   {
-    Serial.println("\nEncrypted content TOBESEND:");
-    Serial.println(client->client_data);
+    // Serial.println("\nEncrypted content TOBESEND:");
+    // Serial.println(client->client_data);
     client->add(client->client_data, client->client_data_len);
     client->send();
   }
@@ -160,10 +169,7 @@ Base64_AES aes(256);
 /* event callbacks */
 /*static*/ void Client_handleData(void *arg, AsyncClient *client, void *data, size_t len)
 {
-  Serial.printf("\n data received from %s \n", client->remoteIP().toString().c_str());
-  Serial.write((uint8_t *)data, len);
-  client->close(true);
-  client->free();
+  Serial.println("Dta Recieve");
 }
 
 /*static*/ void Client_onConnect(void *arg, AsyncClient *client)
@@ -174,6 +180,7 @@ Base64_AES aes(256);
 
 /*static*/ void Client_handleError(void *arg, AsyncClient *client, int8_t error)
 {
+  Serial.printf("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
   if (client->is_new_data)
   {
     client->is_new_data = false;
@@ -184,10 +191,10 @@ Base64_AES aes(256);
   client->close(true);
   client->free();
   delete client;
-  Serial.printf("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
 }
 /*static*/ void Client_handleDisconnect(void *arg, AsyncClient *client)
 {
+  Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
   if (client->is_new_data)
   {
     client->is_new_data = false;
@@ -198,13 +205,13 @@ Base64_AES aes(256);
   client->close(true);
   client->free();
   delete client;
-  Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
 }
 
 /*static*/ void Client_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
 {
   if (client->is_new_data)
   {
+    Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
     client->is_new_data = false;
     client->client_data_len = 0;
     delete client->client_data;
@@ -213,7 +220,6 @@ Base64_AES aes(256);
   client->close(true);
   client->free();
   delete client;
-  Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
 }
 
 /**
@@ -239,12 +245,15 @@ void connectToServer(const char *host, int port, char *msg, size_t len)
 
   AsyncClient *client = new AsyncClient;
   client->connect(host, port);
-  /******Cleint Set up****/
+
+  ///////////////////////////////////////
+
   client->onData(&Client_handleData, client);
   client->onError(&Client_handleError, NULL);
   client->onDisconnect(&Client_handleDisconnect, NULL);
   client->onTimeout(&Client_handleTimeOut, NULL);
   client->onConnect(&Client_onConnect, client);
+  /******Cleint Set up****/
   client->client_data = msg;
   client->client_data_len = len;
   client->is_new_data = true;
