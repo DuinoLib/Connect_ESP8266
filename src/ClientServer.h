@@ -41,7 +41,7 @@ Base64_AES aes(256);
 
 /*static*/ void Server_handleDisconnect(void *arg, AsyncClient *client)
 {
-  LOG("Server handling disconnction of a client");
+  LOG("Server handling disconnection of a client");
   ///////////////////Lets handele the message after the disconnection/////////////////////
   size_t expected_msg_len = aes.expected_decrypted_b64_len(client->client_data_len);
   char *decryptedmsg = new char[expected_msg_len + 1];

@@ -24,6 +24,6 @@ void loop()
   {
     mili = millis();
     uint32_t free = system_get_free_heap_size();
-    VERF("Free Heap:",free);
+    // VERF("Free Heap:",free);
   }
 }
