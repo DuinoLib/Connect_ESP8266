@@ -1,3 +1,6 @@
+#ifndef CLIENTSERVER_H
+#define CLIENTSERVER_H
+
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <vector>
@@ -6,6 +9,7 @@
 #include <Base64_AES.h>
 #include <ArduinoJson.h>
 #include <MessageValidator.h>
+#include <MyDebug.h>
 /**
 
 **************************Shared Variable***************
@@ -17,13 +21,13 @@ Base64_AES aes(256);
 
 /********************************************************/
 
-/********************************************SERVER*********************************************/
+/******************************************* AS A SERVER PART *********************************************/
 
-/********************************************CLIENT EVENTS**************************************/
+/******************************************** CLIENT EVENTS **************************************/
 
 /*static*/ void Server_handleError(void *arg, AsyncClient *client, int8_t error)
 {
-  Serial.printf("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
+  LOG("Server has got error conection with a client");
   ////delete the client's readed data properly////
   if (client->is_new_data)
   {
@@ -32,71 +36,57 @@ Base64_AES aes(256);
   }
   ///////////////
   client->close(true);
-  client->free();
   delete client;
 }
 
 /*static*/ void Server_handleDisconnect(void *arg, AsyncClient *client)
 {
-  Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
-
-  ///////////////////LETS DECRYPT WHEN DISCONNECTED/////////////////////
-  ////////Do something here//////////
+  LOG("Server handling disconnction of a client");
+  ///////////////////Lets handele the message after the disconnection/////////////////////
   size_t expected_msg_len = aes.expected_decrypted_b64_len(client->client_data_len);
   char *decryptedmsg = new char[expected_msg_len + 1];
-
   aes.decrypt_b64(client->client_data, client->client_data_len, decryptedmsg);
-  // size_t strlen_d = strlen(decryptedmsg);
-  // if (strlen_d < expected_msg_len)
-  // {
-  //   decryptedmsg[strlen_d] = 0; /// lets end with zero}
-  // }
-  // else
-  // {
-  //   decryptedmsg[expected_msg_len] = 0; /// lets end with zero}
-  // }
   decryptedmsg[expected_msg_len] = 0; /// lets end with zero}
+  LOG(decryptedmsg);
   //////////DO SOMETHING HERE//////
-  validate(decryptedmsg, expected_msg_len);
+  validate(decryptedmsg, expected_msg_len); // lets ctake appropate action for the message
   /////////////////////////////////
   delete decryptedmsg;
-
   //////////////////////////////////////////////////////////////////////
-  ////delete the client's readed data properly////
+  ////we will nothing to do with this client so disconnect and delete it properly////
   if (client->is_new_data)
   {
     client->is_new_data = false;
     delete client->client_data;
   }
-  ///////////////
   client->close(true);
-  client->free();
   delete client;
 }
 
 /*static*/ void Server_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
 {
-  Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
-  Serial.println();
-  ////delete the client's readed data properly////
+  LOG("Server time ACK timeout at a client");
+  ////we will nothing to do with this client so disconnect and delete it properly////
   if (client->is_new_data)
   {
     client->is_new_data = false;
     delete client->client_data;
   }
-  ///////////////
   client->close(true);
-  client->free();
   delete client;
 }
 
 /*static*/ void Server_handleData(void *arg, AsyncClient *client, void *data, size_t len)
 {
-  Serial.printf("\n data received from client %s \n", client->remoteIP().toString().c_str());
+  LOG("Server is receiving data from a client");
   ////////////////////////////////////////
+  /*
+  *
+  *Note: this function is called more than once if the message sent by the client is too big
+  *
+  */
 
-  // Serial.println((char*)data);
-  //////////THIS IS JUST APPENDING "data" to "client_data"////////////
+  ///////this follwowing is appending the mesage to the client object's "client_data"
   size_t new_data_len = client->client_data_len + len;
   char *new_data = new char[new_data_len];
   for (size_t i = 0; i < client->client_data_len; i++)
@@ -106,7 +96,6 @@ Base64_AES aes(256);
   for (size_t i = 0; i < len; i++)
   {
     new_data[client->client_data_len + i] = ((char *)data)[i];
-    // Serial.println(((char *)data)[i]);
   }
   client->client_data_len = new_data_len;
   if (client->is_new_data)
@@ -114,17 +103,22 @@ Base64_AES aes(256);
     delete client->client_data; // dont forget to delete the previous char array if existed......
   }
   client->client_data = new char[new_data_len];
-  client->is_new_data = true;
+  client->is_new_data = true; // set ther is new data in the client object
   for (size_t i = 0; i < new_data_len; i++)
   {
     client->client_data[i] = new_data[i];
   }
   delete new_data;
-  //////////////////////THIS WAS JUST APPENDING "data" to "client_data"/////////////////////////
-
+  ///////////////////////end of appending the message to client data in cleint data object///////////////
+  /**
+   * 
+   * As this function is call more than once we should not handle the message sent by the client here.
+   * we will handle it in the "Server_handleDisconnect()"
+   * 
+   */
   if (client->space() > 32 && client->canSend())
   {
-    ///////////////////SEND DATA IF YOU WANT//////////////////////
+    ////lets send some empty space message so that the client can also disconnect by it own
     char reply[] = " ";
     client->add(reply, strlen(reply));
     client->send();
@@ -133,7 +127,7 @@ Base64_AES aes(256);
 /*************************************WHEN NEW CONNECTION***************************/
 /*static*/ void handleNewClient(void *arg, AsyncClient *client)
 {
-  Serial.printf("\n new client has been connected to server, ip: %s", client->remoteIP().toString().c_str());
+  LOG("Server is connected by a cleint");
   client->onData(&Server_handleData, NULL);
   client->onError(&Server_handleError, NULL);
   client->onDisconnect(&Server_handleDisconnect, NULL);
@@ -141,26 +135,23 @@ Base64_AES aes(256);
 }
 
 /**
-
-*********************************END SERVER PART***************************************
-
-*/
+ *  
+ * *******************************END SERVER PART***************************************
+ * 
+ */
 
 /**
-
-************************************CLIENT PART*****************************************
-
-*/
+ * 
+ * ************************************ AS A CLIENT PART *****************************************
+ * 
+ */
 
 /*static*/ void Client_replyToServer(void *arg)
 {
   AsyncClient *client = reinterpret_cast<AsyncClient *>(arg);
-
-  // send reply
   if (client->space() > 32 && client->canSend())
   {
-    // Serial.println("\nEncrypted content TOBESEND:");
-    // Serial.println(client->client_data);
+    LOG("Sending encrypted mesage to a TCP server");
     client->add(client->client_data, client->client_data_len);
     client->send();
   }
@@ -169,80 +160,71 @@ Base64_AES aes(256);
 /* event callbacks */
 /*static*/ void Client_handleData(void *arg, AsyncClient *client, void *data, size_t len)
 {
-  Serial.println("Dta Recieve");
+  //we are not interested with ata recieved from the server so do nothing
+  LOG("Recieving useless message from a TCP server.");
 }
 
 /*static*/ void Client_onConnect(void *arg, AsyncClient *client)
 {
-  Serial.printf("\n client has been connected to ");
+  LOG("Has been connected to a TCP server");
   Client_replyToServer(client);
 }
 
 /*static*/ void Client_handleError(void *arg, AsyncClient *client, int8_t error)
 {
-  Serial.printf("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
+  LOG("Got connection error in connecting to a TCP server");
+  ////we will nothing to do with this client so disconnect and delete it properly////
   if (client->is_new_data)
   {
     client->is_new_data = false;
     client->client_data_len = 0;
     delete client->client_data;
   }
-  ///////////////
   client->close(true);
-  client->free();
   delete client;
 }
 /*static*/ void Client_handleDisconnect(void *arg, AsyncClient *client)
 {
-  Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
+  LOG("Handling disconnection from a TCP server");
+  ////we will nothing to do with this client so disconnect and delete it properly////
   if (client->is_new_data)
   {
     client->is_new_data = false;
     client->client_data_len = 0;
     delete client->client_data;
   }
-  ///////////////
   client->close(true);
-  client->free();
   delete client;
 }
 
 /*static*/ void Client_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
 {
+  LOG("Time out in a connection to a TCP server");
+  ////we will nothing to do with this client so disconnect and delete it properly////
   if (client->is_new_data)
   {
-    Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
     client->is_new_data = false;
     client->client_data_len = 0;
     delete client->client_data;
   }
-  ///////////////
   client->close(true);
-  client->free();
   delete client;
 }
 
 /**
-
-*********************************END CLIENT PART***************************************
-
-*/
+ * 
+ *********************************END OF AS ACLIENT PART***************************************
+ *
+ */
 
 /**
-
-**********************************MY FUNCTION***************************************
-
-*/
+ * 
+ * **********************************MY FUNCTION***************************************
+ * 
+ */
 
 void connectToServer(const char *host, int port, char *msg, size_t len)
 {
-  //  AsyncClient* client = new AsyncClient;
-  //  client->onData(&Client_handleData, client);
-  //  client->onError(&Client_handleError, NULL);
-  //  client->onDisconnect(&Client_handleDisconnect, NULL);
-  //  client->onTimeout(&Client_handleTimeOut, NULL);
-  //  client->onConnect(&Client_onConnect, client);
-
   AsyncClient *client = new AsyncClient;
   client->connect(host, port);
 
@@ -264,7 +246,7 @@ void presetup();
 void postsetup();
 /**************************************************************************************/
 
-extern uint16_t TCP_PORT;
+extern uint16_t TCP_PORT;//this port is where this device will open a TCP server
 
 AsyncServer *server = new AsyncServer(TCP_PORT); // start listening on tcp port 7050
 
@@ -281,8 +263,8 @@ void setup()
   //  AsyncServer* server = new AsyncServer(TCP_PORT); // start listening on tcp port 7050
   server->onClient(&handleNewClient, server);
   server->begin();
-
   /////////////////////////////////////////////////////////////////
-
   postsetup();
 }
+
+#endif

@@ -1,6 +1,10 @@
+#ifndef MESSAGE_VALIDATOR
+#define MESSAGE_VALIDATOR
 
 #include <ArduinoJson.h>
 #include <Base64_AES.h>
+#include <MyDebug.h>
+#include <MessageValidatorUtils.h>
 
 #define NOTIFICATION_CHANNEL_ID "com.unbi.connect"
 #define BOOTCOMPLETE "android.intent.action.BOOT_COMPLETED"
@@ -26,11 +30,10 @@
 #define DATALIST_SALT "salttype"
 #define DATALIST_MSG "pendingMsg"
 
-////////////////////////////////DEFINE////////////////////
-#define UNIQUE_LEN 16 // length of the salt or msessage id
+////////////////////////////////DEFINE USER CHOICE////////////////////
+#define UNIQUE_LEN 16 //this will be the length of the salt or msessage id
 #define MAX_SALT 3
 #define MAX_MSG 3
-
 #define MAX_PENDING_TIME 10000000 //10 seconds in microseconds
 
 /////////////////EXTERN//////////////
@@ -38,33 +41,15 @@ extern uint16_t TCP_PORT;
 extern Base64_AES aes;
 extern void connectToServer(const char *host, int port, char *msg, size_t len);
 
-///////////////////////////////////////////////////
-///////////////////////////////////////////////////////////
-void getrandom(char *ran, size_t len)
-{
-    uint8_t exclusions[]{91, 92, 93, 94, 95, 96};
-    for (size_t i = 0; i < len - 1; i++)
-    {
-        uint8_t val;
-        do
-        {
-            val = random(65, 123);
-        } while ([&exclusions, &val]() {
-            for (uint8_t k : exclusions)
-            {
-                if (val == k)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }());
-        ran[i] = val;
-    }
-    ran[len - 1] = 0;
-}
 
-//////////////***********************CLASS********************////////////////////
+///////////////////////////////////////////////////////////
+
+/**
+ * 
+ * ***********************CLASS**********************
+ * 
+ * 
+ */
 
 class Salt
 {
@@ -103,19 +88,28 @@ public:
     bool is_set = false;
 };
 
-/////////////////////////////////////Salt array And message array////////////
-
+/////////////////////////////////////Salt Array and Pending mesage array////////////
 Salt *mySalts[MAX_SALT];
 uint8_t salt_counter = 0;
-
 Message *myMsgs[MAX_MSG];
-//////////////////Pop the salt/////////////////
 
-//////////////////////////////////////Message Constructor////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+ *
+ **************************DEFINING FUCTIONS***********************
+ * 
+ */
+
+
+/**
+ * 
+ ************** This function will generate a json doc whic is a mesage *********************
+ * 
+ */
 
 void constructMsg(
-    const JsonDocument &json,
-    StaticJsonDocument<1500> &doc,
+    const JsonDocument &json, /*We will use this json o take some data from it*/
+    StaticJsonDocument<1500> &doc /*We will generate it  here*/,
     uint8_t msg_type,
     uint16_t salt_index,
     uint16_t msg_index = -1,
@@ -127,7 +121,7 @@ void constructMsg(
     uint8_t commutype = COMMUTYPE_WIFI,
     int8_t result = RESULT_UNKNOWN)
 {
-
+    ////Sorry it is hard to generate a uuid in microcontroller so i am leaving it by taking some random char array///
     ///set uuidtocheck
     if (json["uuidToadd"])
     {
@@ -148,7 +142,6 @@ void constructMsg(
     sndr["ip"] = WiFi.localIP().toString();
     sndr["port"] = TCP_PORT;
     ////////////uuidToAdd//////////
-
     JsonObject uid_add = doc.createNestedObject("uuidToadd");
     if (msg_index < 0)
     {
@@ -188,42 +181,48 @@ void constructMsg(
     doc["message"] = message;
 }
 
-///////////////////////////ENCRYpted Mesasge Sender//////////////
+///////////////////////////Encrypted Mesasge Sender//////////////
 
 void handleEncryptedsend(char *msg, uint16_t len, const char *ip, uint16_t port)
 {
-    // Serial.println("\nSending msessage...\n");
-    // Serial.println(ip);
-    // Serial.println(port);
-    // Serial.println(msg);
-
-    ////////Do something here//////////
-
-    Serial.println(len);
+    /**
+     *What we are doing here is -->  taking the message and encrypt 
+     *it and pass to a function to send it to respective TCP server 
+     */
+    ////////Lets encrypt the message
     size_t expected_msg_len = aes.expected_encrypted_b64_len(len);
-    if (expected_msg_len > 1500)
+    if (expected_msg_len > 2000)
     {
-        expected_msg_len = 1500;
+        expected_msg_len = 2000; // limit the message length by 2000
     }
-    char *crypted = new char[expected_msg_len + 2];
+    char *crypted = new char[expected_msg_len + 3]; // we add 3 extra byte to store --> "\r\n\0"
     aes.encrypt_b64(msg, len, crypted);
-    //////////DO SOMETHING HERE/////
-    size_t crypted_len = strlen(crypted);
-    ///Lets make the line ended by "\r\n" this will make server to disconnect
-    crypted[crypted_len] = 13;     //"\r"
-    crypted[crypted_len + 1] = 10; //"\n"
-    crypted[crypted_len + 2] = 0;  //"0"
-    crypted_len = crypted_len + 3;
-    // Serial.println("\nEnrypt len");
-    // Serial.println(crypted);
+    ///////Okeyy we have encrypted the message
+    size_t crypted_len = strlen(crypted); //lets take know the lengt till "0" for some case
+
+    if (expected_msg_len - crypted_len < 3)
+    {
+        crypted_len = expected_msg_len;
+        ///Lets make the line ended by "\r\n" this will make server to disconnect
+        crypted[crypted_len - 2] = 13; //"\r"
+        crypted[crypted_len - 1] = 10; //"\n"
+        crypted[crypted_len] = 0;      //"0"
+    }
+    else
+    {
+        ///Lets make the line ended by "\r\n" this will make server to disconnect
+        crypted[crypted_len] = 13;     //"\r"
+        crypted[crypted_len + 1] = 10; //"\n"
+        crypted[crypted_len + 2] = 0;  //"0"
+        crypted_len = crypted_len + 3;
+    }
     connectToServer(ip, port, crypted, crypted_len);
+    //Dont panic we will delete the "crypted" in another functio... don't delete it here
 }
 
 ///////////////////////////////////////////////////////////////
 void validate(char *data, size_t len)
 {
-    Serial.println("\nValidate");
-    // Serial.println(data);
     StaticJsonDocument<1500> doc;
     DeserializationError error = deserializeJson(doc, data);
     if (error)
@@ -403,3 +402,5 @@ void validate(char *data, size_t len)
 
     Serial.println("\nMust not Recieve here.....");
 }
+
+#endif
