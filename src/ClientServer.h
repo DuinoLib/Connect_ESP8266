@@ -5,6 +5,7 @@
 #include <WiFiManager.h>
 #include <Base64_AES.h>
 #include <ArduinoJson.h>
+#include <MessageValidator.h>
 /**
 
 **************************Shared Variable***************
@@ -14,19 +15,11 @@
 byte secret_key[] = {239, 121, 124, 129, 24, 240, 45, 251, 100, 150, 7, 221, 93, 63, 140, 118, 35, 4, 140, 156, 6, 61, 83, 44, 201, 92, 94, 215, 168, 152, 166, 79}; //hashlib.sha256(key.encode()).digest()  [from python]
 Base64_AES aes(256);
 
-////Readeing data from Client////////
-
-char readeddata[1000]; /// lets make a very long char array
-
 /********************************************************/
 
 /********************************************SERVER*********************************************/
 
 /********************************************CLIENT EVENTS**************************************/
-
-/****************************************DO WHEN SERVER LOCKED******************************************/
-
-/****************************************DO WHEN SERVER IS NOT LOCKED******************************************/
 
 /*static*/ void Server_handleError(void *arg, AsyncClient *client, int8_t error)
 {
@@ -48,21 +41,16 @@ char readeddata[1000]; /// lets make a very long char array
   Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
 
   ///////////////////LETS DECRYPT WHEN DISCONNECTED/////////////////////
-    ////////Do something here//////////
-    size_t expected_msg_len = aes.expected_decrypted_b64_len(client->client_data_len);
-    char *decryptedmsg = new char[expected_msg_len];
+  ////////Do something here//////////
+  size_t expected_msg_len = aes.expected_decrypted_b64_len(client->client_data_len);
+  char *decryptedmsg = new char[expected_msg_len+1];
 
-    aes.decrypt_b64(client->client_data, client->client_data_len, decryptedmsg);
-    for (size_t i = 0; i < expected_msg_len; i++)
-    {
-      readeddata[i] = decryptedmsg[i];
-    }
-    readeddata[expected_msg_len] = 0; //terminate the last string as 0
-    delete decryptedmsg;
-    //////////DO SOMETHING HERE//////
-    Serial.println("Final msg:");
-    Serial.println(readeddata);
-    /////////////////////////////////
+  aes.decrypt_b64(client->client_data, client->client_data_len, decryptedmsg);
+  decryptedmsg[expected_msg_len]=0;/// lets end with zero
+  //////////DO SOMETHING HERE//////
+  validate(decryptedmsg, expected_msg_len);
+  /////////////////////////////////
+  delete decryptedmsg;
 
   //////////////////////////////////////////////////////////////////////
   ////delete the client's readed data properly////
@@ -162,9 +150,9 @@ char readeddata[1000]; /// lets make a very long char array
   // send reply
   if (client->space() > 32 && client->canSend())
   {
-    char message[32];
-    sprintf(message, "this is from %s", WiFi.localIP().toString().c_str());
-    client->add(message, strlen(message));
+    Serial.println("\nEncrypted content TOBESEND:");
+    Serial.println(client->client_data);
+    client->add(client->client_data, client->client_data_len);
     client->send();
   }
 }
@@ -174,6 +162,8 @@ char readeddata[1000]; /// lets make a very long char array
 {
   Serial.printf("\n data received from %s \n", client->remoteIP().toString().c_str());
   Serial.write((uint8_t *)data, len);
+  client->close(true);
+  client->free();
 }
 
 /*static*/ void Client_onConnect(void *arg, AsyncClient *client)
@@ -184,15 +174,45 @@ char readeddata[1000]; /// lets make a very long char array
 
 /*static*/ void Client_handleError(void *arg, AsyncClient *client, int8_t error)
 {
+  if (client->is_new_data)
+  {
+    client->is_new_data = false;
+    client->client_data_len = 0;
+    delete client->client_data;
+  }
+  ///////////////
+  client->close(true);
+  client->free();
+  delete client;
   Serial.printf("\n connection error %s from client %s \n", client->errorToString(error), client->remoteIP().toString().c_str());
 }
 /*static*/ void Client_handleDisconnect(void *arg, AsyncClient *client)
 {
+  if (client->is_new_data)
+  {
+    client->is_new_data = false;
+    client->client_data_len = 0;
+    delete client->client_data;
+  }
+  ///////////////
+  client->close(true);
+  client->free();
+  delete client;
   Serial.printf("\n client %s disconnected \n", client->remoteIP().toString().c_str());
 }
 
 /*static*/ void Client_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
 {
+  if (client->is_new_data)
+  {
+    client->is_new_data = false;
+    client->client_data_len = 0;
+    delete client->client_data;
+  }
+  ///////////////
+  client->close(true);
+  client->free();
+  delete client;
   Serial.printf("\n client ACK timeout ip: %s \n", client->remoteIP().toString().c_str());
 }
 
@@ -208,8 +228,7 @@ char readeddata[1000]; /// lets make a very long char array
 
 */
 
-AsyncClient *client = new AsyncClient;
-void connectToServer(char *host, int port)
+void connectToServer(const char *host, int port, char *msg, size_t len)
 {
   //  AsyncClient* client = new AsyncClient;
   //  client->onData(&Client_handleData, client);
@@ -217,7 +236,18 @@ void connectToServer(char *host, int port)
   //  client->onDisconnect(&Client_handleDisconnect, NULL);
   //  client->onTimeout(&Client_handleTimeOut, NULL);
   //  client->onConnect(&Client_onConnect, client);
+
+  AsyncClient *client = new AsyncClient;
   client->connect(host, port);
+  /******Cleint Set up****/
+  client->onData(&Client_handleData, client);
+  client->onError(&Client_handleError, NULL);
+  client->onDisconnect(&Client_handleDisconnect, NULL);
+  client->onTimeout(&Client_handleTimeOut, NULL);
+  client->onConnect(&Client_onConnect, client);
+  client->client_data = msg;
+  client->client_data_len = len;
+  client->is_new_data = true;
 }
 
 /***********************************INTERFCE******************************************/
@@ -242,12 +272,6 @@ void setup()
   //  AsyncServer* server = new AsyncServer(TCP_PORT); // start listening on tcp port 7050
   server->onClient(&handleNewClient, server);
   server->begin();
-  /******Cleint Set up****/
-  client->onData(&Client_handleData, client);
-  client->onError(&Client_handleError, NULL);
-  client->onDisconnect(&Client_handleDisconnect, NULL);
-  client->onTimeout(&Client_handleTimeOut, NULL);
-  client->onConnect(&Client_onConnect, client);
 
   /////////////////////////////////////////////////////////////////
 
