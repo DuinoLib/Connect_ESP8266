@@ -297,12 +297,12 @@ void constructMsgFromPendingMsg(
     doc["mtype"] = msg_type;
     ///////lets set intent//////
     doc["isIntent"] = p_msg->isIntent;
+    ////////////////////TAG/////////////////
+    doc["tag"] = p_msg->tag;
     /////////////let's set task name///////////
     doc["taskName"] = p_msg->taskName;
     //////////message/////////
     doc["message"] = p_msg->message;
-    ////////////////////TAG/////////////////
-    doc["tag"] = p_msg->tag;
     ///////////extra/////////////
     doc["extra"] = p_msg->extra;
 }
@@ -370,12 +370,12 @@ void constructMsgFromMessage(
     doc["mtype"] = msg_type;
     ///////lets set intent//////
     doc["isIntent"] = intent;
+    ////////////////////TAG/////////////////
+    doc["tag"] = tag;
     /////////////let's set task name///////////
     doc["taskName"] = taskName;
     //////////message/////////
     doc["message"] = message;
-    ////////////////////TAG/////////////////
-    doc["tag"] = tag;
     ///////////extra/////////////
     doc["extra"] = extra;
 }
@@ -423,12 +423,12 @@ void constructMessage(
     doc["mtype"] = msg_type;
     ///////lets set intent//////
     doc["isIntent"] = intent;
+    ////////////////////TAG/////////////////
+    doc["tag"] = tag;
     /////////////let's set task name///////////
     doc["taskName"] = taskName;
     //////////message/////////
     doc["message"] = message;
-    ////////////////////TAG/////////////////
-    doc["tag"] = tag;
     ///////////extra/////////////
     doc["extra"] = extra;
 }
@@ -626,7 +626,9 @@ void validate(char *data, size_t len)
     }
     if (msgType == TYPE_MESSAGE)
     {
+        // doc["tag"] doc["taskName"] doc["message"] doc["extra"]
         LOG("We have to do something");
+        SRLF("ESP_RCV:",(const char *)doc["tag"]);
         return;
     }
 

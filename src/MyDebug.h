@@ -2,11 +2,12 @@
 #ifndef MYDEBUG_H
 #define MYDEBUG_H
 ///DEFFINE//////
-#define DEBUG_ESP
-#define LOG_ESP
-#define VER_ESP
-#define ERR_ESP
-#define LOG_BYTE
+// #define DEBUG_ESP
+// #define LOG_ESP
+// #define VER_ESP
+// #define ERR_ESP
+// #define LOG_BYTE
+#define SRL_ESP
 ///////////////
 
 unsigned long milli = 0;
@@ -121,6 +122,29 @@ void byteLog(const char *ch, size_t len)
 #define VER(...)
 #define VERF(...)
 #endif
+
+#ifdef SRL_ESP
+#define SRL(...)                    \
+    Serial.print("Serial-> ");         \
+    Serial.print(__VA_ARGS__);      \
+    Serial.print("[");              \
+    Serial.print(millis() - milli); \
+    Serial.println("]");            \
+    milli = millis()
+#define SRLF(sname, ...)            \
+    Serial.print("Serial--> ");         \
+    Serial.print(sname);            \
+    Serial.print(": ");             \
+    Serial.print(__VA_ARGS__);      \
+    Serial.print("[");              \
+    Serial.print(millis() - milli); \
+    Serial.println("]");            \
+    milli = millis()
+#else
+#define SRL(...)
+#define SRLF(...)
+#endif
+
 
 #ifdef ERR_ESP
 #define ERR(...)                    \
