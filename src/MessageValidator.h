@@ -86,16 +86,12 @@ public:
     bool is_set = false;
     //////usable variable///////
     char *taskName;
-    bool b_taskName = false;
     size_t taskName_len = 0;
     char *message;
-    bool b_message = false;
     size_t message_len = 0;
     char *tag;
-    bool b_tag = false;
     size_t tag_len = 0;
     char *extra;
-    bool b_extra = false;
     size_t extra_len = 0;
     int8_t mtype = TYPE_MESSAGE;
     bool isIntent = false;
@@ -104,36 +100,17 @@ public:
 
     ~Message()
     {
-        if (is_set)
-        {
-            delete id;
-            is_set = false;
-        }
-        if (this->b_taskName)
-        {
-            this->b_taskName = false;
-            this->taskName_len = 0;
-            delete this->taskName;
-        }
-        if (this->b_message)
-        {
-            this->b_message = false;
-            this->message_len = 0;
-            delete this->message;
-        }
-        if (this->b_tag)
-        {
-            this->b_tag = false;
-            this->tag_len = 0;
-            delete this->tag;
-        }
-        if (this->b_extra)
-        {
-            this->b_extra = false;
-            this->extra_len = 0;
-            delete this->extra;
-        }
-
+        is_set = false;
+        is_not_consumed=false;
+        delete id;
+        delete this->tag;
+        delete this->message;
+        delete this->taskName;
+        delete this->extra;
+        this->tag_len = 0;
+        this->taskName_len = 0;
+        this->message_len = 0;
+        this->extra_len = 0;
         this->mtype = TYPE_MESSAGE;
         this->isIntent = false;
         this->resultcode = RESULT_UNKNOWN;
@@ -161,42 +138,22 @@ public:
              bool isIntent,
              int8_t resultcode)
     {
-
-        if (this->b_taskName)
-        {
-            delete this->taskName;
-        }
-        this->b_taskName = true;
-        this->taskName = new char[ptaskName_len + 1];
-        memcpy(this->taskName, ptaskName, ptaskName_len);
-        this->taskName[ptaskName_len] = 0;
-        this->taskName_len = ptaskName_len;
-
-        if (this->b_message)
-        {
-            delete this->message;
-        }
-        this->b_message = true;
-        this->message = new char[pmessage_len + 1];
-        memcpy(this->message, pmessage, pmessage_len);
-        this->message[pmessage_len] = 0;
-        this->message_len = pmessage_len;
-
-        if (this->b_tag)
-        {
-            delete this->tag;
-        }
-        this->b_tag = true;
+        
         this->tag = new char[ptag_len + 1];
         memcpy(this->tag, ptag, ptag_len);
         this->tag[ptag_len] = 0;
         this->tag_len = ptag_len;
 
-        if (this->b_extra)
-        {
-            delete this->extra;
-        }
-        this->b_extra = true;
+        this->taskName = new char[ptaskName_len + 1];
+        memcpy(this->taskName, ptaskName, ptaskName_len);
+        this->taskName[ptaskName_len] = 0;
+        this->taskName_len = ptaskName_len;
+
+        this->message = new char[pmessage_len + 1];
+        memcpy(this->message, pmessage, pmessage_len);
+        this->message[pmessage_len] = 0;
+        this->message_len = pmessage_len;
+
         this->extra = new char[extra_len + 1];
         memcpy(this->extra, pextra, pextra_len);
         extra[pextra_len] = 0;
@@ -628,7 +585,7 @@ void validate(char *data, size_t len)
     {
         // doc["tag"] doc["taskName"] doc["message"] doc["extra"]
         LOG("We have to do something");
-        SRLF("ESP_RCV:",(const char *)doc["tag"]);
+        SRLF("ESP_RCV:", (const char *)doc["tag"]);
         return;
     }
 
