@@ -34,6 +34,7 @@
 #define MAX_SALT 3
 #define MAX_MSG 3
 #define JSON_SIZE 2000
+#define ZERO 0
 
 /////////////////EXTERN//////////////
 extern uint16_t TCP_PORT;
@@ -54,7 +55,7 @@ class Salt
 public:
     Salt()
     {
-        generateSalt();
+        generate();
     }
     unsigned long time = 0;
     char *salt_char;
@@ -67,7 +68,7 @@ public:
     }
 
 private:
-    void generateSalt()
+    void generate()
     {
         char *salt_char = new char[UNIQUE_LEN];
         getrandom(salt_char, UNIQUE_LEN);
@@ -82,16 +83,179 @@ class Message
 public:
     unsigned long time = 0;
     char *id;
-    char *msg;
     bool is_set = false;
+    //////usable variable///////
+    char *taskName;
+    bool b_taskName = false;
+    size_t taskName_len = 0;
+    char *message;
+    bool b_message = false;
+    size_t message_len = 0;
+    char *tag;
+    bool b_tag = false;
+    size_t tag_len = 0;
+    char *extra;
+    bool b_extra = false;
+    size_t extra_len = 0;
+    int8_t mtype = TYPE_MESSAGE;
+    bool isIntent = false;
+    int8_t resultcode = RESULT_UNKNOWN;
+    bool is_not_consumed = false;
+
+    ~Message()
+    {
+        if (is_set)
+        {
+            delete id;
+            is_set = false;
+        }
+        if (this->b_taskName)
+        {
+            this->b_taskName = false;
+            this->taskName_len = 0;
+            delete this->taskName;
+        }
+        if (this->b_message)
+        {
+            this->b_message = false;
+            this->message_len = 0;
+            delete this->message;
+        }
+        if (this->b_tag)
+        {
+            this->b_tag = false;
+            this->tag_len = 0;
+            delete this->tag;
+        }
+        if (this->b_extra)
+        {
+            this->b_extra = false;
+            this->extra_len = 0;
+            delete this->extra;
+        }
+
+        this->mtype = TYPE_MESSAGE;
+        this->isIntent = false;
+        this->resultcode = RESULT_UNKNOWN;
+    }
+
+    void generate()
+    {
+        char *msg_char = new char[UNIQUE_LEN];
+        getrandom(msg_char, UNIQUE_LEN);
+        this->id = msg_char;
+        this->is_set = true;
+        this->time = micros();
+        this->is_not_consumed = true;
+    }
+
+    void set(size_t ptaskName_len,
+             size_t pmessage_len,
+             char *ptaskName,
+             char *pmessage,
+             size_t ptag_len,
+             char *ptag,
+             size_t pextra_len,
+             char *pextra,
+             int8_t pmtype,
+             bool isIntent,
+             int8_t resultcode)
+    {
+
+        if (this->b_taskName)
+        {
+            delete this->taskName;
+        }
+        this->b_taskName = true;
+        this->taskName = new char[ptaskName_len + 1];
+        memcpy(this->taskName, ptaskName, ptaskName_len);
+        this->taskName[ptaskName_len] = 0;
+        this->taskName_len = ptaskName_len;
+
+        if (this->b_message)
+        {
+            delete this->message;
+        }
+        this->b_message = true;
+        this->message = new char[pmessage_len + 1];
+        memcpy(this->message, pmessage, pmessage_len);
+        this->message[pmessage_len] = 0;
+        this->message_len = pmessage_len;
+
+        if (this->b_tag)
+        {
+            delete this->tag;
+        }
+        this->b_tag = true;
+        this->tag = new char[ptag_len + 1];
+        memcpy(this->tag, ptag, ptag_len);
+        this->tag[ptag_len] = 0;
+        this->tag_len = ptag_len;
+
+        if (this->b_extra)
+        {
+            delete this->extra;
+        }
+        this->b_extra = true;
+        this->extra = new char[extra_len + 1];
+        memcpy(this->extra, pextra, pextra_len);
+        extra[pextra_len] = 0;
+        this->extra_len = pextra_len;
+
+        this->mtype = mtype;
+        this->isIntent = isIntent;
+        this->resultcode = resultcode;
+    }
 };
 
 /////////////////////////////////////Salt Array and Pending mesage array////////////
 Salt *mySalts[MAX_SALT];
 uint8_t salt_counter = 0;
 Message *myMsgs[MAX_MSG];
+uint8_t msg_counter = 0;
 
 ////////////////////////////////////////////////////////////////////////////////
+/////////////////generate salt//////////////
+
+int generateSalt()
+{
+    salt_counter++; //add one value of salt counter
+    if (salt_counter > MAX_SALT - 1)
+    {
+        salt_counter = 0;
+    }
+    Salt *prev_salt = mySalts[salt_counter];
+    if (prev_salt)
+    {
+        VER("Deleted previous salt....");
+        delete prev_salt;
+    }
+    mySalts[salt_counter] = new Salt(); //add the new salt to the salt array
+    return salt_counter;
+}
+
+int generateMsg()
+{
+    msg_counter++; //add one value of salt counter
+    if (msg_counter > MAX_MSG - 1)
+    {
+        msg_counter = 0;
+    }
+    Message *prev_msg = myMsgs[msg_counter];
+    if (prev_msg)
+    {
+        if (prev_msg->is_set)
+        {
+            VER("Deleted previous pending msg....");
+            delete prev_msg;
+        }
+    }
+    Message *msg = new Message();
+    msg->generate();
+    myMsgs[msg_counter] = msg; //add the new salt to the salt array
+    return msg_counter;
+}
+
 /**
  *
  **************************DEFINING FUCTIONS***********************
@@ -104,20 +268,67 @@ Message *myMsgs[MAX_MSG];
  * 
  */
 
-void constructMsg(
+void constructMsgFromPendingMsg(
     const JsonDocument &json, /*We will use this json o take some data from it*/
-    StaticJsonDocument<JSON_SIZE> &doc /*We will generate it  here*/,
-    uint8_t msg_type,
-    uint16_t salt_index,
-    uint16_t msg_index = -1,
-    bool intent = false,
-    char *taskName = NULL,
-    char *message = NULL,
-    char *extra = NULL,
-    char *tag = NULL,
-    uint8_t commutype = COMMUTYPE_WIFI,
+    StaticJsonDocument<JSON_SIZE> &doc,
+    Message *p_msg,
+    int8_t msg_type,
+    int8_t commutype = COMMUTYPE_WIFI,
     int8_t result = RESULT_UNKNOWN)
 {
+    ////////////lets set this sender ip/////////
+    JsonObject sndr = doc.createNestedObject("sender");
+    sndr["ip"] = WiFi.localIP().toString();
+    sndr["port"] = TCP_PORT;
+    ///////////////commutype/////////
+    doc["commuType"] = commutype;
+    ////////////uuidToAdd//////////
+    ////////SETTING ALL NULL/////
+    JsonObject uid_add = doc.createNestedObject("uuidToadd");
+    uid_add["uuid"] = p_msg->id;
+    doc["uuidToCheck"] = (char *)NULL;
+    /////////////////////////////////
+    doc["saltToAdd"] = (char *)NULL;
+    doc["saltToCheck"] = json["saltToAdd"];
+    /////////////////////////////////////////
+    ///////result code/////////
+    doc["resultCode"] = result;
+    ////////message type//////
+    doc["mtype"] = msg_type;
+    ///////lets set intent//////
+    doc["isIntent"] = p_msg->isIntent;
+    /////////////let's set task name///////////
+    doc["taskName"] = p_msg->taskName;
+    //////////message/////////
+    doc["message"] = p_msg->message;
+    ////////////////////TAG/////////////////
+    doc["tag"] = p_msg->tag;
+    ///////////extra/////////////
+    doc["extra"] = p_msg->extra;
+}
+
+void constructMsgFromMessage(
+    const JsonDocument &json, /*We will use this json o take some data from it*/
+    StaticJsonDocument<JSON_SIZE> &doc /*We will generate it  here*/,
+    int8_t msg_type,
+    int16_t salt_index,
+    int16_t msg_index = -1,
+    bool intent = false,
+    char *taskName = (char *)NULL,
+    char *message = (char *)NULL,
+    char *extra = (char *)NULL,
+    char *tag = (char *)NULL,
+    int8_t commutype = COMMUTYPE_WIFI,
+    int8_t result = RESULT_UNKNOWN)
+{
+    ////////////lets set this sender ip/////////
+    JsonObject sndr = doc.createNestedObject("sender");
+    sndr["ip"] = WiFi.localIP().toString();
+    sndr["port"] = TCP_PORT;
+
+    ///////////////commutype/////////
+    doc["commuType"] = commutype;
+    ////////////uuidToAdd//////////
     ////Sorry it is hard to generate a uuid in microcontroller so i am leaving it by taking some random char array///
     ///set uuidtocheck
     if (json["uuidToadd"])
@@ -129,53 +340,97 @@ void constructMsg(
     {
         doc["uuidToCheck"] = json["uuidToadd"];
     }
-    ////////////////////////////
-    ///////lets set intent//////
-    doc["isIntent"] = intent;
-    /////////////let's set task name///////////
-    doc["taskName"] = taskName;
-    ////////////lets set this sender ip/////////
-    JsonObject sndr = doc.createNestedObject("sender");
-    sndr["ip"] = WiFi.localIP().toString();
-    sndr["port"] = TCP_PORT;
-    ////////////uuidToAdd//////////
     JsonObject uid_add = doc.createNestedObject("uuidToadd");
     if (msg_index < 0)
     {
-        uid_add["uuid"] = NULL;
+        uid_add["uuid"] = (char *)NULL;
     }
     else
     {
-        uid_add["uuid"] = mySalts[salt_index]->salt_char;
+        uid_add["uuid"] = myMsgs[salt_index]->id;
     }
-    ///////////extra/////////////
-    doc["extra"] = extra;
-    ////////message type//////
-    doc["mtype"] = msg_type;
     ///////////////////////////
     ///////////SaltToadd///////
     JsonObject salt_add = doc.createNestedObject("saltToAdd");
     salt_add["saltString"] = mySalts[salt_index]->salt_char;
-    // salt_add["milli"] = mySalts[salt_index]->time;
-    ////////////////////TAG/////////////////
-    doc["tag"] = tag;
-    ///////////////commutype/////////
-    doc["commuType"] = commutype;
-    ///////result code/////////
-    doc["resultCode"] = result;
+
     ////////////salt to check//////////
     if (json["saltToAdd"])
     {
         JsonObject uid_chk = doc.createNestedObject("saltToCheck");
         uid_chk["saltString"] = json["saltToAdd"]["saltString"];
-        // uid_chk["milli"] = (unsigned long)json["saltToAdd"]["milli"];
     }
     else
     {
-        json["saltToCheck"] = json["saltToAdd"];
+        doc["saltToCheck"] = json["saltToAdd"];
     }
+    ///////result code/////////
+    doc["resultCode"] = result;
+    ////////message type//////
+    doc["mtype"] = msg_type;
+    ///////lets set intent//////
+    doc["isIntent"] = intent;
+    /////////////let's set task name///////////
+    doc["taskName"] = taskName;
     //////////message/////////
     doc["message"] = message;
+    ////////////////////TAG/////////////////
+    doc["tag"] = tag;
+    ///////////extra/////////////
+    doc["extra"] = extra;
+}
+
+void constructMessage(
+    StaticJsonDocument<JSON_SIZE> &doc /*We will generate it  here*/,
+    int8_t msg_type,
+    int16_t salt_index,
+    int16_t msg_index = -1,
+    bool intent = false,
+    char *taskName = (char *)NULL,
+    char *message = (char *)NULL,
+    char *extra = (char *)NULL,
+    char *tag = (char *)NULL,
+    int8_t commutype = COMMUTYPE_WIFI,
+    int8_t result = RESULT_UNKNOWN)
+{
+    ////////////lets set this sender ip/////////
+    JsonObject sndr = doc.createNestedObject("sender");
+    sndr["ip"] = WiFi.localIP().toString();
+    sndr["port"] = TCP_PORT;
+
+    ///////////////commutype/////////
+    doc["commuType"] = commutype;
+    ////////////uuidToAdd//////////
+    ////Sorry it is hard to generate a uuid in microcontroller so i am leaving it by taking some random char array///
+    JsonObject uid_add = doc.createNestedObject("uuidToadd");
+    if (msg_index < 0)
+    {
+        uid_add["uuid"] = (char *)NULL;
+    }
+    else
+    {
+        uid_add["uuid"] = myMsgs[salt_index]->id;
+    }
+    doc["uuidToCheck"] = (char *)NULL;
+    ///////////////////////////
+    ///////////SaltToadd///////
+    JsonObject salt_add = doc.createNestedObject("saltToAdd");
+    salt_add["saltString"] = mySalts[salt_index]->salt_char;
+    doc["saltToCheck"] = (char *)NULL;
+    ///////result code/////////
+    doc["resultCode"] = result;
+    ////////message type//////
+    doc["mtype"] = msg_type;
+    ///////lets set intent//////
+    doc["isIntent"] = intent;
+    /////////////let's set task name///////////
+    doc["taskName"] = taskName;
+    //////////message/////////
+    doc["message"] = message;
+    ////////////////////TAG/////////////////
+    doc["tag"] = tag;
+    ///////////extra/////////////
+    doc["extra"] = extra;
 }
 
 ///////////////////////////Encrypted Mesasge Sender//////////////
@@ -195,24 +450,13 @@ void handleEncryptedsend(char *msg, uint16_t len, const char *ip, uint16_t port)
     char *crypted = new char[expected_msg_len + 3]; // we add 3 extra byte to store --> "\r\n\0"
     aes.encrypt_b64(msg, len, crypted);
     ///////Okeyy we have encrypted the message
-    size_t crypted_len = strlen(crypted); //lets take know the lengt till "0" for some case
 
-    if (expected_msg_len - crypted_len < 3)
-    {
-        crypted_len = expected_msg_len;
-        ///Lets make the line ended by "\r\n" this will make server to disconnect
-        crypted[crypted_len - 2] = 13; //"\r"
-        crypted[crypted_len - 1] = 10; //"\n"
-        crypted[crypted_len] = 0;      //"0"
-    }
-    else
-    {
-        ///Lets make the line ended by "\r\n" this will make server to disconnect
-        crypted[crypted_len] = 13;     //"\r"
-        crypted[crypted_len + 1] = 10; //"\n"
-        crypted[crypted_len + 2] = 0;  //"0"
-        crypted_len = crypted_len + 3;
-    }
+    size_t crypted_len = strnlen(crypted, expected_msg_len); //lets take know the length till "0" for some case
+    ///Lets make the line ended by "\r\n" this will make server to disconnect
+    crypted[crypted_len] = 13;     //"\r"
+    crypted[crypted_len + 1] = 10; //"\n"
+    crypted[crypted_len + 2] = 0;  //"0"
+    crypted_len = crypted_len + 3;
     connectToServer(ip, port, crypted, crypted_len);
     //Dont panic we will delete the "crypted" in another functio... don't delete it here
 }
@@ -220,6 +464,8 @@ void handleEncryptedsend(char *msg, uint16_t len, const char *ip, uint16_t port)
 ///////////////////////////////////////////////////////////////
 void validate(char *data, size_t len)
 {
+
+    BYTE_LOG(data, len);
     /**
      * In this fuction we take a message from the sender and w check if it is valid
      * 
@@ -228,13 +474,14 @@ void validate(char *data, size_t len)
     */
     StaticJsonDocument<JSON_SIZE> doc;
     DeserializationError error = deserializeJson(doc, data);
+
     if (error)
     {
         ERRF("deserializeJson() failed", error.c_str());
         return; //return as the message is not able to parse as json
     }
     ////cheeck message is init type/salt to check is null or not////
-    const uint8_t msgType = doc["mtype"];
+    const int8_t msgType = doc["mtype"];
     /////check sender is valid////
     if (!doc["sender"])
     {
@@ -258,24 +505,12 @@ void validate(char *data, size_t len)
     {
         VER("saltToCheck is null");
         ///////////////Here we are adding a new Salt to the Salt Array//////////////////
-        salt_counter++; //add one value of salt counter
-        if (salt_counter > MAX_SALT - 1)
-        {
-            salt_counter = 0;
-        }
-        Salt *prev_salt = mySalts[salt_counter];
-        if (prev_salt)
-        {
-            VER("Deleted previous salt....");
-            delete prev_salt;
-        }
-        Salt *mysalt = new Salt();
-        mySalts[salt_counter] = mysalt; //add the new salt to the salt array
-        ///////Okey we have add an new salt to the salt aray
+        size_t index = generateSalt();
+        ///////Okey we have add an new salt to the salt array
         //// Now,let's custruct a new message to send
         ////////////////////////////////
         StaticJsonDocument<JSON_SIZE> newdoc;
-        constructMsg(doc, newdoc, TYPE_INIT, salt_counter);
+        constructMsgFromMessage(doc, newdoc, TYPE_INIT, index);
         int sz = measureJson(newdoc) + 2;
         char *msg2send = new char[sz];
         serializeJson(newdoc, msg2send, sz);
@@ -311,9 +546,9 @@ void validate(char *data, size_t len)
         Salt *p_salt = mySalts[k];
         if (p_salt) //if the salt is not null
         {
-            if (compareSalt(q_salt,p_salt->salt_char, p_salt->time,curmicro))
+            if (compare_ID(q_salt, p_salt->salt_char, p_salt->time, curmicro))
             {
-                validsalt=true;
+                validsalt = true;
                 break;
             }
         }
@@ -333,8 +568,61 @@ void validate(char *data, size_t len)
     //if the message is INIT type//// send the aactual meaage
     if (msgType == TYPE_INIT)
     {
+        // lets get the message uuid to check
         LOG("Init... please send actual meaage");
-        return;
+        const char *init_uuid = doc["uuidToCheck"]["uuid"];
+        LOGF("UUID to check", init_uuid);
+
+        /// loop inside the array to check if there is the message
+        unsigned long curmicro_msg = micros();
+        boolean validMsg = false;
+        //// if it is not there do nothing
+        int m = 0;
+        Message *p_msg;
+        ///////Checking there is valid message in message array///////
+        for (;;)
+        {
+            if (m >= MAX_MSG)
+            {
+                break;
+            }
+            ///////////////////////
+            p_msg = myMsgs[m];
+            if (p_msg) //if the salt is not null
+            {
+                if (compare_ID(init_uuid, p_msg->id, p_msg->time, curmicro_msg))
+                {
+                    validMsg = true;
+                    break;
+                }
+            }
+            //////////////////////////
+            m++;
+        }
+        if (!validMsg)
+        {
+            ERR("Unfortunately there is no such message");
+            return;
+        }
+        if (!p_msg->is_not_consumed)
+        {
+            ERR("Valid message but already consumed");
+            return;
+        }
+        p_msg->is_not_consumed = false;
+        LOGF("Pennding msg", p_msg->message);
+        // if YES.... change the mesage gtipe to TYPE_MESSAGE and send back again
+        StaticJsonDocument<JSON_SIZE> newpendingJson;
+        ////////////////////////////////
+        constructMsgFromPendingMsg(doc, newpendingJson, p_msg, TYPE_MESSAGE);
+        int p_sz = measureJson(newpendingJson) + 2;
+        char *pen_msg2send = new char[p_sz];
+        serializeJson(newpendingJson, pen_msg2send, p_sz);
+        pen_msg2send[p_sz - 1] = 0; //terminating the string with zero in case....
+        DEBUGF("Pending message to send", pen_msg2send);
+        handleEncryptedsend(pen_msg2send, p_sz, SenderIp, SenderPort);
+        delete pen_msg2send;
+        return; //return as w have send a valid salt
     }
     if (msgType == TYPE_MESSAGE)
     {

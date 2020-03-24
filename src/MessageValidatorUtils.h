@@ -7,7 +7,7 @@
 #define UNIQUE_LEN 16             //this will be the length of the salt or msessage id
 #define MAX_PENDING_TIME 10000000 //10 seconds in microseconds
 
-boolean compareSalt(const char *salt1, char *salt2, unsigned long salt_time, unsigned long curmicro)
+boolean compare_ID(const char *salt1, char *salt2, unsigned long salt_time, unsigned long curmicro)
 {
     if (curmicro - salt_time > MAX_PENDING_TIME)
     {
@@ -51,5 +51,8 @@ void getrandom(char *ran, size_t len)
     }
     ran[len - 1] = 0;
 }
+
+
+
 
 #endif

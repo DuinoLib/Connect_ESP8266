@@ -29,14 +29,18 @@ Base64_AES aes(256);
 {
   LOG("Server has got error conection with a client");
   ////delete the client's readed data properly////
-  if (client->is_new_data)
+  ////we will nothing to do with this client so disconnect and delete it properly////
+  if (client)
   {
-    client->is_new_data = false;
-    delete client->client_data;
+    if (client->is_new_data)
+    {
+      client->is_new_data = false;
+      client->client_data_len = 0;
+      delete client->client_data;
+    }
+    client->close(true);
+    delete client;
   }
-  ///////////////
-  client->close(true);
-  delete client;
 }
 
 /*static*/ void Server_handleDisconnect(void *arg, AsyncClient *client)
@@ -54,26 +58,35 @@ Base64_AES aes(256);
   delete decryptedmsg;
   //////////////////////////////////////////////////////////////////////
   ////we will nothing to do with this client so disconnect and delete it properly////
-  if (client->is_new_data)
+  if (client)
   {
-    client->is_new_data = false;
-    delete client->client_data;
+    if (client->is_new_data)
+    {
+      client->is_new_data = false;
+      client->client_data_len = 0;
+      delete client->client_data;
+    }
+    client->close(true);
+    delete client;
   }
-  client->close(true);
-  delete client;
 }
 
 /*static*/ void Server_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
 {
   LOG("Server time ACK timeout at a client");
   ////we will nothing to do with this client so disconnect and delete it properly////
-  if (client->is_new_data)
+  ////we will nothing to do with this client so disconnect and delete it properly////
+  if (client)
   {
-    client->is_new_data = false;
-    delete client->client_data;
+    if (client->is_new_data)
+    {
+      client->is_new_data = false;
+      client->client_data_len = 0;
+      delete client->client_data;
+    }
+    client->close(true);
+    delete client;
   }
-  client->close(true);
-  delete client;
 }
 
 /*static*/ void Server_handleData(void *arg, AsyncClient *client, void *data, size_t len)
@@ -174,41 +187,51 @@ Base64_AES aes(256);
 {
   LOG("Got connection error in connecting to a TCP server");
   ////we will nothing to do with this client so disconnect and delete it properly////
-  if (client->is_new_data)
+  ////we will nothing to do with this client so disconnect and delete it properly////
+  if (client)
   {
-    client->is_new_data = false;
-    client->client_data_len = 0;
-    delete client->client_data;
+    if (client->is_new_data)
+    {
+      client->is_new_data = false;
+      client->client_data_len = 0;
+      delete client->client_data;
+    }
+    client->close(true);
+    delete client;
   }
-  client->close(true);
-  delete client;
 }
 /*static*/ void Client_handleDisconnect(void *arg, AsyncClient *client)
 {
   LOG("Handling disconnection from a TCP server");
   ////we will nothing to do with this client so disconnect and delete it properly////
-  if (client->is_new_data)
+  if (client)
   {
-    client->is_new_data = false;
-    client->client_data_len = 0;
-    delete client->client_data;
+    if (client->is_new_data)
+    {
+      client->is_new_data = false;
+      client->client_data_len = 0;
+      delete client->client_data;
+    }
+    client->close(true);
+    delete client;
   }
-  client->close(true);
-  delete client;
 }
 
 /*static*/ void Client_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)
 {
   LOG("Time out in a connection to a TCP server");
   ////we will nothing to do with this client so disconnect and delete it properly////
-  if (client->is_new_data)
+  if (client)
   {
-    client->is_new_data = false;
-    client->client_data_len = 0;
-    delete client->client_data;
+    if (client->is_new_data)
+    {
+      client->is_new_data = false;
+      client->client_data_len = 0;
+      delete client->client_data;
+    }
+    client->close(true);
+    delete client;
   }
-  client->close(true);
-  delete client;
 }
 
 /**
@@ -246,7 +269,7 @@ void presetup();
 void postsetup();
 /**************************************************************************************/
 
-extern uint16_t TCP_PORT;//this port is where this device will open a TCP server
+extern uint16_t TCP_PORT; //this port is where this device will open a TCP server
 
 AsyncServer *server = new AsyncServer(TCP_PORT); // start listening on tcp port 7050
 
