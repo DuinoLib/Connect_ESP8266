@@ -31,8 +31,8 @@
 #define DATALIST_MSG "pendingMsg"
 
 ////////////////////////////////DEFINE USER CHOICE////////////////////
-#define MAX_SALT 3
-#define MAX_MSG 3
+#define MAX_SALT 20
+#define MAX_MSG 20
 #define JSON_SIZE 2000
 #define ZERO 0
 
@@ -537,7 +537,7 @@ void validate(char *data, size_t len)
         int m = 0;
         Message *p_msg;
         ///////Checking there is valid message in message array///////
-        for (;;)
+        for (;;)//🤦‍♂️ i got some bug if i dont do for loop like this.... may be my Node MCU is faulty////
         {
             if (m >= MAX_MSG)
             {
@@ -566,7 +566,7 @@ void validate(char *data, size_t len)
             ERR("Valid message but already consumed");
             return;
         }
-        p_msg->is_not_consumed = false;
+        p_msg->is_not_consumed = false;///Set the message flag as consumed.....
         LOGF("Pennding msg", p_msg->message);
         // if YES.... change the mesage gtipe to TYPE_MESSAGE and send back again
         StaticJsonDocument<JSON_SIZE> newpendingJson;
