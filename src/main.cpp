@@ -1,3 +1,14 @@
+
+/***
+ *
+ * https://internetofhomethings.com/homethings/?p=396
+ * 
+ * Note for me ... my Node MCU crash sometime... i dont know why.....
+ * 
+ *  
+ */
+
+
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ClientServer.h>

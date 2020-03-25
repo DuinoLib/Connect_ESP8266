@@ -69,6 +69,8 @@ Base64_AES aes(256);
     client->close(true);
     delete client;
   }
+  
+  LOG("Completed Server  disconnection of a client");
 }
 
 /*static*/ void Server_handleTimeOut(void *arg, AsyncClient *client, uint32_t time)

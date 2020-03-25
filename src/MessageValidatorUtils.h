@@ -31,8 +31,15 @@ void getrandom(char *ran, size_t len)
 {
     // we are trying to generate only alpha numerical salt
     uint8_t exclusions[]{91, 92, 93, 94, 95, 96};
-    for (size_t i = 0; i < len - 1; i++)
+    size_t i = 0;
+    for (;;)
     {
+        ///////////////////////
+        if (i >= len - 1)
+        {
+            break;
+        }
+        /////////////////////
         uint8_t val;
         do
         {
@@ -50,6 +57,8 @@ void getrandom(char *ran, size_t len)
         ran[i] = val;
     }
     ran[len - 1] = 0;
+    ///////////////////////////
+    i++;
 }
 
 boolean compare(char *char1,const char *char2, size_t len)
