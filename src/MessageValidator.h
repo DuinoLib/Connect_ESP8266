@@ -43,6 +43,11 @@ extern void connectToServer(const char *host, int port, char *msg, size_t len);
 
 ///////////////////////////////////////////////////////////
 
+/*********************Interface***************************/
+
+void PerformTask(const JsonDocument &json);// this will be called when valid message is arrived/////
+
+///////////////////////////////////////////////////////////
 /**
  * 
  * ***********************CLASS**********************
@@ -586,6 +591,7 @@ void validate(char *data, size_t len)
         // doc["tag"] doc["taskName"] doc["message"] doc["extra"]
         LOG("We have to do something");
         SRLF("ESP_RCV:", (const char *)doc["tag"]);
+        PerformTask(doc);
         return;
     }
 

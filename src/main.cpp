@@ -3,14 +3,33 @@
 #include <ClientServer.h>
 #include <MyDebug.h>
 
-uint16_t TCP_PORT = 8080;
+#define LED_BUILT 2
+//////////////////////////////////////////
+uint16_t TCP_PORT = 8080; ///change this server port if you want
 
+////////////////////Condtant for LED//////////////
+bool LED_STATE = false;
+////////////////////////////////////////////////
+//////Never use delay;except in presetup() and postsetup;
 void presetup()
 {
   Serial.begin(115200);
   Serial.println();
   uint32_t free_ram = system_get_free_heap_size();
   SRLF("Free ram at init:", free_ram);
+
+  /////////////////LED///////////////
+  pinMode(LED_BUILT, OUTPUT);
+
+  LED_STATE = !LED_STATE;
+  digitalWrite(BUILTIN_LED, LED_STATE);
+  delay(2000);
+  LED_STATE = !LED_STATE;
+  digitalWrite(BUILTIN_LED, LED_STATE);
+  delay(2000);
+  LED_STATE = !LED_STATE;
+  digitalWrite(BUILTIN_LED, LED_STATE);
+  delay(2000);
 }
 
 void postsetup()
@@ -47,3 +66,14 @@ void loop()
   }
 }
 
+//////////////////we do the folowing task when valid message is recieved/////////
+
+void PerformTask(const JsonDocument &json)
+{
+  // doc["tag"] doc["taskName"] doc["message"] doc["extra"]
+  if (compare("Hello", (const char *)json["tag"], 5))
+  {
+    LED_STATE = !LED_STATE;
+    digitalWrite(BUILTIN_LED, LED_STATE);
+  }
+}
