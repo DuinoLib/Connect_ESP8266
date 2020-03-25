@@ -41,7 +41,8 @@ extern uint16_t TCP_PORT;
 extern Base64_AES aes;
 extern void connectToServer(const char *host, int port, char *msg, size_t len);
 
-///////////////////////////////////////////////////////////
+/////////////////////Perform the following interface when a valid message is recievrd////////////////////
+void PerformTask(const JsonDocument &json);
 
 /**
  * 
@@ -586,6 +587,7 @@ void validate(char *data, size_t len)
         // doc["tag"] doc["taskName"] doc["message"] doc["extra"]
         LOG("We have to do something");
         SRLF("ESP_RCV:", (const char *)doc["tag"]);
+        PerformTask(doc);
         return;
     }
 

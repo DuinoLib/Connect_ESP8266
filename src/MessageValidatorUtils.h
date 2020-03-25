@@ -52,7 +52,21 @@ void getrandom(char *ran, size_t len)
     ran[len - 1] = 0;
 }
 
-
+boolean compare(char *char1,const char *char2, size_t len)
+{
+    for (size_t i = 0; i < len; i++) // interating over the char of char array to check if the char array are same
+    {
+        if (char1[i] != char2[i])
+        {
+            LOG("Not Equal:-->");
+            LOGF(char1, char2);
+            return false;
+        }
+    }
+    LOG("Equal:-->");
+    LOGF(char1, char2);
+    return true;
+}
 
 
 #endif
