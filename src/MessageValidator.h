@@ -1,9 +1,6 @@
 #ifndef MESSAGE_VALIDATOR
 #define MESSAGE_VALIDATOR
 
-#include <ArduinoJson.h>
-#include <Base64_AES.h>
-#include <MyDebug.h>
 #include <MessageValidatorUtils.h>
 
 #define NOTIFICATION_CHANNEL_ID "com.unbi.connect"

@@ -3,13 +3,18 @@
 
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
-#include <vector>
-#include "config.h"
 #include <WiFiManager.h>
 #include <Base64_AES.h>
 #include <ArduinoJson.h>
-#include <MessageValidator.h>
+
 #include <MyDebug.h>
+#include <MessageValidator.h>
+
+
+#ifdef ESP_OTA_SETUP
+#include <OTAsetup.h>
+#endif
+
 /**
 
 **************************Shared Variable***************
@@ -269,7 +274,6 @@ void presetup();
 void postsetup();
 /**************************************************************************************/
 
-
 /**
  * 
  ************************SEND A FRESH MESSAGE************************** 
@@ -280,12 +284,12 @@ void sendMessage(
     uint16_t recieverPort,
     size_t tag_len,
     size_t taskName_len,
-    char *tag ,
+    char *tag,
     char *taskName,
-    size_t message_len=0,
-    char *message=(char*)NULL,
+    size_t message_len = 0,
+    char *message = (char *)NULL,
     size_t extra_len = 0,
-    char *extra = (char*)NULL,
+    char *extra = (char *)NULL,
     int8_t mtype = TYPE_MESSAGE,
     bool isIntent = false,
     int8_t resultcode = RESULT_UNKNOWN)
@@ -298,18 +302,18 @@ void sendMessage(
   int init_index = generateMsg();
   Message *msg = myMsgs[init_index];
   msg->set(taskName_len,
-          message_len,
-          taskName,
-          message,
-          tag_len,
-          tag,
-          extra_len,
-          extra,
-          mtype,
-          isIntent,
-          resultcode);
+           message_len,
+           taskName,
+           message,
+           tag_len,
+           tag,
+           extra_len,
+           extra,
+           mtype,
+           isIntent,
+           resultcode);
   size_t salt_index = generateSalt();
-  
+
   ///// Lets construct init message///////
   StaticJsonDocument<JSON_SIZE> constructed_init_msg;
   constructMessage(
@@ -329,7 +333,7 @@ void sendMessage(
   serializeJson(constructed_init_msg, msg2send, sz);
   msg2send[sz - 1] = 0; //terminating the string with zero in case....
   DEBUGF("RAW Messages to send", msg2send);
-  handleEncryptedsend(msg2send,sz,receiverIp,recieverPort);
+  handleEncryptedsend(msg2send, sz, receiverIp, recieverPort);
   delete msg2send;
 }
 //////////////////////////////////////////////////////////////////////////////
@@ -351,6 +355,13 @@ void setup()
   server->onClient(&handleNewClient, server);
   server->begin();
   /////////////////////////////////////////////////////////////////
+
+///////////For OTA/////////
+#ifdef ESP_OTA_SETUP
+  handleOTAsetup();
+#endif
+  ///////////////////////////
+
   postsetup();
 }
 

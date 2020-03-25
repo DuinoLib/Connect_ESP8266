@@ -7,18 +7,23 @@
  * 
  *  
  */
+//////////////////////////////////////////////////////////
+#define ESP_OTA_SETUP /////Uncomment this to enable OTA upload
 
+#ifdef ESP_OTA_SETUP
+#define OTA_KEY "helloworld" ///OTA password
+#endif
 
-#include <Arduino.h>
-#include <ESP8266WiFi.h>
+////////////////////////////////////////////////////////////
+
 #include <ClientServer.h>
-#include <MyDebug.h>
 
-#define LED_BUILT 2
 //////////////////////////////////////////
 uint16_t TCP_PORT = 8080; ///change this server port if you want
 
-////////////////////Condtant for LED//////////////
+////////////////////Constant for LED//////////////
+
+#define LED_BUILT 2
 bool LED_STATE = false;
 ////////////////////////////////////////////////
 //////Never use delay;except in presetup() and postsetup;
@@ -51,6 +56,12 @@ unsigned long mili1 = 0;
 unsigned long mili2 = 0;
 void loop()
 {
+
+/*****************FOR OTA******************/
+#ifdef ESP_OTA_SETUP
+  ArduinoOTA.handle();
+#endif
+  /********************************************/
   if (millis() - mili1 > 2000)
   {
     mili1 = millis();

@@ -1,7 +1,6 @@
 #ifndef MESSAGE_VALIDATOR_UTILS_H
 #define MESSAGE_VALIDATOR_UTILS_H
 
-#include <ESP8266WiFi.h>
 
 ////////////////////////////////DEFINE USER CHOICE////////////////////
 #define UNIQUE_LEN 16             //this will be the length of the salt or msessage id
